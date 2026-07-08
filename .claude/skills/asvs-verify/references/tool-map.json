@@ -1,0 +1,20 @@
+{
+  "_comment": "Maps each ASVS 5.0 chapter to the primary verification MECHANISM and the deterministic tools (from ../../../types.md) that can PRODUCE evidence for it. mechanism=tool means a scanner output is the proof; mechanism=inspection means LLM/human review of code/design; mechanism=hybrid means run the tool AND reason about what it cannot reach (business logic, authz intent). Prefer tool evidence wherever a mapping exists — that is what makes the verdict provable rather than an opinion.",
+  "V1":  {"name": "Encoding and Sanitization",        "mechanism": "hybrid",      "tools": ["SAST (semgrep, codeql)", "DAST"]},
+  "V2":  {"name": "Validation and Business Logic",    "mechanism": "hybrid",      "tools": ["SAST", "DAST", "fuzz testing"]},
+  "V3":  {"name": "Web Frontend Security",            "mechanism": "tool",        "tools": ["HTTP security header scan (observatory)", "DAST"]},
+  "V4":  {"name": "API and Web Service",              "mechanism": "hybrid",      "tools": ["API security scanning", "DAST"]},
+  "V5":  {"name": "File Handling",                    "mechanism": "hybrid",      "tools": ["SAST", "DAST", "malware scanning (clamav)"]},
+  "V6":  {"name": "Authentication",                   "mechanism": "inspection",  "tools": ["DAST", "config review"]},
+  "V7":  {"name": "Session Management",               "mechanism": "hybrid",      "tools": ["DAST", "SAST"]},
+  "V8":  {"name": "Authorization",                    "mechanism": "inspection",  "tools": ["DAST (IDOR/BOLA)", "manual review"]},
+  "V9":  {"name": "Self-contained Tokens",            "mechanism": "hybrid",      "tools": ["SAST", "manual JWT review"]},
+  "V10": {"name": "OAuth and OIDC",                   "mechanism": "inspection",  "tools": ["config review", "manual flow review"]},
+  "V11": {"name": "Cryptography",                     "mechanism": "hybrid",      "tools": ["SAST (weak-crypto rules)", "secret scanning (gitleaks)"]},
+  "V12": {"name": "Secure Communication",            "mechanism": "tool",        "tools": ["TLS scanning (testssl.sh)", "HTTP header scan"]},
+  "V13": {"name": "Configuration",                    "mechanism": "tool",        "tools": ["IaC scanning (checkov)", "CSPM (prowler)", "secret scanning", "container image scanning (trivy)"]},
+  "V14": {"name": "Data Protection",                  "mechanism": "hybrid",      "tools": ["PII scanning (presidio)", "manual review"]},
+  "V15": {"name": "Secure Coding and Architecture",   "mechanism": "tool",        "tools": ["SCA / dependency-check", "SBOM (cyclonedx)", "SAST", "secret scanning"]},
+  "V16": {"name": "Security Logging and Error Handling", "mechanism": "inspection", "tools": ["SAST (log-injection, sensitive-data-in-logs)", "manual review"]},
+  "V17": {"name": "WebRTC",                           "mechanism": "inspection",  "tools": ["DAST", "manual review"]}
+}
