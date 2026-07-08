@@ -11,24 +11,51 @@ against OWASP ASVS 5.0 — and, for every gap, a concrete remediation.
 This skill runs against a **target repo/app the engineer names**, not against the
 `sec` toolkit repo itself. Never hardcode paths; ask for or infer the target.
 
+## The `asvs` command (prerequisite: `uv`)
+
+The deterministic engine is packaged as a single named command — **`asvs`** — so
+you never invoke raw Python or care where the script lives. It needs
+[`uv`](https://docs.astral.sh/uv/) on the machine (like spec-kit); if `uv` is
+missing, tell the engineer to install it rather than falling back to `python3`.
+
+`asvs` is stdlib-only and its ASVS dataset is bundled, so every command works from
+**any** working directory — including inside the engineer's target repo.
+
+**Install it once, at the start of the assessment, then call `asvs` bare.** This
+matters because this skill usually runs from *inside the target repo* (cwd = the
+app under test), where a relative skill path would not resolve. `$SKILL` below is
+the **absolute path to this skill's own directory** — the directory containing this
+`SKILL.md` (you know it at runtime; it is *not* the target repo's
+`.claude/skills/...`).
+
+```bash
+SKILL="<absolute path to this skill directory>"   # the dir holding this SKILL.md
+uv tool install --from "$SKILL" asvs-verify        # puts `asvs` on PATH, cwd-independent
+asvs stats --level L2                               # now works from any directory
+```
+
+Prefer that. If you'd rather not install, every command also runs zero-install as
+`uvx --from "$SKILL" asvs <cmd>` (resolves fresh each call). Commands below are
+written as bare `asvs …`.
+
 ## Core principle: provable, not plausible
 
 An attestation is only worth the evidence behind it. Three rules are absolute:
 
 1. **Scope is derived, never recalled.** The set of applicable requirements comes
-   from `scripts/asvs.py` reading the authoritative dataset — not from memory.
+   from the `asvs` command reading the authoritative dataset — not from memory.
    ASVS 5.0 has 345 reqs / 17 chapters and a level model that *differs from 4.0.3*
    (see `references/levels.md`). Do not hand-type requirement IDs or text.
 2. **Every PASS/FAIL carries evidence.** A `file:line`, a config value, a scan
    output, or a test result. "I read it and it looks fine" is not evidence.
 3. **NEEDS-EVIDENCE is a valid, honest answer.** If a requirement needs a runtime
    test you didn't run, mark it NEEDS-EVIDENCE. A truthful "not verified" is worth
-   more than a fabricated PASS. `scripts/asvs.py report` treats any remaining
+   more than a fabricated PASS. `asvs report` treats any remaining
    NEEDS-EVIDENCE as **INCOMPLETE** and refuses to call the run conformant.
 
 ## Prefer tools over opinion (the hybrid mechanism)
 
-Many requirements are provable deterministically. `references/tool-map.json` maps
+Many requirements are provable deterministically. `asvs_verify/data/tool-map.json` maps
 each chapter to a mechanism:
 
 - **`tool`** (V3, V12, V13, V15…): run the scanner; its output *is* the evidence.
@@ -51,8 +78,8 @@ scanner can produce the proof. The full tool catalogue is `../../../types.md`.
 
 ### 2. Generate the checklist (deterministic)
 ```bash
-python3 scripts/asvs.py stats    --level L2                      # see the scope
-python3 scripts/asvs.py scaffold --level L2 --target "acme-api" --out asvs.json
+asvs stats    --level L2                      # see the scope
+asvs scaffold --level L2 --target "acme-api" --out asvs.json
 ```
 `asvs.json` has one row per applicable requirement, each pre-seeded with
 `verdict: NEEDS-EVIDENCE`, its `mechanism`, and `suggested_tools`.
@@ -68,7 +95,7 @@ Work chapter by chapter. For each requirement:
 
 ### 4. Roll up & attest
 ```bash
-python3 scripts/asvs.py report --checklist asvs.json
+asvs report --checklist asvs.json
 ```
 This prints coverage/conformance, and **fails the integrity check** if any PASS/FAIL
 lacks evidence or any FAIL lacks a remediation. Fix those before publishing.
@@ -81,33 +108,36 @@ prioritized remediation plan: what to fix, the ASVS ID it closes, and the mechan
 to prove the fix (re-run the same tool). Map systemic gaps to broader controls in
 `../../../standards.md` (e.g. crypto → FIPS 140-3, supply chain → SLSA/SSDF).
 
-## Commands reference (`scripts/asvs.py`)
+## Commands reference (`asvs`)
 
 | Command | Purpose |
 |---------|---------|
-| `chapters` | List the 17 chapters. |
-| `stats --level L2 [--chapter V6,V7]` | Requirement counts in scope. |
-| `list --level L1 --chapter V6` | Print applicable requirement text. |
-| `scaffold --level L2 --target NAME --out f.json` | Emit the checklist to fill. |
-| `report --checklist f.json` | Roll up + integrity-check the filled checklist. |
+| `asvs chapters` | List the 17 chapters. |
+| `asvs stats --level L2 [--chapter V6,V7]` | Requirement counts in scope. |
+| `asvs list --level L1 --chapter V6` | Print applicable requirement text. |
+| `asvs scaffold --level L2 --target NAME --out f.json` | Emit the checklist to fill. |
+| `asvs report --checklist f.json` | Roll up + integrity-check the filled checklist. |
 
 ## Files
 
-- `references/asvs-5.0.0.json` — authoritative OWASP dataset (source of truth).
+- `pyproject.toml` — packages the engine as the `asvs` command (stdlib-only, no deps).
+- `asvs_verify/__init__.py` — deterministic requirement/scope/report engine.
+- `asvs_verify/data/asvs-5.0.0.json` — authoritative OWASP dataset (source of truth).
+- `asvs_verify/data/tool-map.json` — chapter → mechanism → deterministic tools.
 - `references/levels.md` — level model & chapter/mechanism table.
-- `references/tool-map.json` — chapter → mechanism → deterministic tools.
 - `templates/attestation.md` — the human-readable attestation report.
-- `scripts/asvs.py` — deterministic requirement/scope/report engine.
 
 ## Updating the dataset
 
 When OWASP publishes a new version, locate the current version's flattened JSON
 export in the OWASP/ASVS repo (the filename embeds the version, so it changes each
-release — do not assume the URL below is stable). Drop the file in `references/`,
-then verify the level model still keys off a single `L` field before trusting it:
+release — do not assume the URL below is stable). Replace the bundled file at
+`asvs_verify/data/asvs-5.0.0.json` (its single source of truth — the `asvs`
+command reads it from there), then verify the level model still keys off a single
+`L` field before trusting it:
 ```bash
 # find the current export (version dir + filename both change between releases):
 curl -sSL "https://api.github.com/repos/OWASP/ASVS/contents/5.0/docs_en" | grep _en.json
 # then fetch that file, e.g. for 5.0.0:
-curl -sSL https://raw.githubusercontent.com/OWASP/ASVS/master/5.0/docs_en/OWASP_Application_Security_Verification_Standard_5.0.0_en.json -o references/asvs-5.0.0.json
+curl -sSL https://raw.githubusercontent.com/OWASP/ASVS/master/5.0/docs_en/OWASP_Application_Security_Verification_Standard_5.0.0_en.json -o asvs_verify/data/asvs-5.0.0.json
 ```

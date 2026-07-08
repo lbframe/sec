@@ -31,7 +31,7 @@
 
 ## Findings (per requirement)
 
-<!-- One block per requirement. Generated from scripts/asvs.py scaffold, then filled in. -->
+<!-- One block per requirement. Generated from `asvs scaffold`, then filled in. -->
 
 ### {{id}} — {{chapter_name}} ({{min_level}})
 - **Requirement:** {{requirement}}

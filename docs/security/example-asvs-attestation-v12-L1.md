@@ -40,10 +40,10 @@
 ## Reproduce
 
 ```bash
-S=.claude/skills/asvs-verify/scripts/asvs.py
-python3 $S scaffold --level L1 --chapter V12 --target "owasp.org" --out v12.json
+SKILL=.claude/skills/asvs-verify
+uvx --from "$SKILL" asvs scaffold --level L1 --chapter V12 --target "owasp.org" --out v12.json
 # for each requirement: run the tool, paste output into evidence, set verdict
 echo | openssl s_client -connect owasp.org:443 -tls1_3 2>/dev/null | grep -iE "Protocol|Cipher is|Verify"
 curl -sSI http://owasp.org | grep -iE "^HTTP|^location"
-python3 $S report --checklist v12.json
+uvx --from "$SKILL" asvs report --checklist v12.json
 ```

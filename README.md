@@ -21,7 +21,7 @@ it falls short — get told exactly what to fix.
 - [Install](#install)
 - [Quick start (5 minutes)](#quick-start-5-minutes)
 - [Using the ASVS skill](#using-the-asvs-skill)
-- [The `asvs.py` engine (CLI reference)](#the-asvspy-engine-cli-reference)
+- [The `asvs` command (CLI reference)](#the-asvs-command-cli-reference)
 - [Verdicts & what "provable" means](#verdicts--what-provable-means)
 - [Evidence tools per chapter](#evidence-tools-per-chapter)
 - [The knowledge bases](#the-knowledge-bases)
@@ -35,9 +35,9 @@ it falls short — get told exactly what to fix.
 | Capability | What it is | Where |
 |-----------|-----------|-------|
 | **`asvs-verify` skill** | Claude Code skill that scopes, verifies, and attests an app against OWASP ASVS 5.0, and writes remediations for gaps. | `.claude/skills/asvs-verify/SKILL.md` |
-| **`asvs.py` engine** | Deterministic CLI: derives the applicable requirement set per level, scaffolds an attestation checklist, and integrity-checks the result. Works standalone (no LLM needed). | `.claude/skills/asvs-verify/scripts/asvs.py` |
-| **Authoritative ASVS data** | OWASP ASVS 5.0.0 — 345 requirements, 17 chapters — fetched from OWASP, not typed from memory. | `.claude/skills/asvs-verify/references/asvs-5.0.0.json` |
-| **Tool map** | Which deterministic scanner produces evidence for each chapter. | `.claude/skills/asvs-verify/references/tool-map.json` |
+| **`asvs` command** | Deterministic CLI (run via [`uv`](https://docs.astral.sh/uv/)): derives the applicable requirement set per level, scaffolds an attestation checklist, and integrity-checks the result. Works standalone (no LLM needed). | `.claude/skills/asvs-verify/` (`uvx --from … asvs`) |
+| **Authoritative ASVS data** | OWASP ASVS 5.0.0 — 345 requirements, 17 chapters — fetched from OWASP, not typed from memory. Bundled with the command. | `.claude/skills/asvs-verify/asvs_verify/data/asvs-5.0.0.json` |
+| **Tool map** | Which deterministic scanner produces evidence for each chapter. | `.claude/skills/asvs-verify/asvs_verify/data/tool-map.json` |
 | **Attestation template** | The human-readable report format. | `.claude/skills/asvs-verify/templates/attestation.md` |
 | **`standards.md`** | ~80 security & compliance standards (NIST, ISO, PCI, OWASP, SLSA…) — the "what good looks like" reference. | `standards.md` |
 | **`types.md`** | Security tooling categories (SAST, SCA, SBOM, DAST, TLS/IaC/container/cloud scanning…) with a concrete tool for each — the "how to get evidence" reference. | `types.md` |
@@ -47,7 +47,9 @@ it falls short — get told exactly what to fix.
 ## Install
 
 ### Prerequisites
-- **Python 3.8+** (tested on 3.13) — for the `asvs.py` engine. No third-party packages.
+- **[`uv`](https://docs.astral.sh/uv/)** — runs the `asvs` command as a named tool
+  and provisions Python for you. That's the only hard dependency (the engine itself
+  is stdlib-only, no third-party packages). Install: `curl -LsSf https://astral.sh/uv/install.sh | sh`.
 - **Claude Code** — to use the `asvs-verify` skill conversationally.
 - **Optional scanners** — only when you want to *prove* a specific requirement:
   `openssl`, `testssl.sh`, `checkov`, `trivy`, `gitleaks`, an SCA/SBOM tool, etc.
@@ -58,17 +60,22 @@ it falls short — get told exactly what to fix.
 The skill lives at `.claude/skills/asvs-verify/`, so it's **auto-discovered whenever
 you run Claude Code in this repo**. Just start Claude here and ask to attest an app.
 
-Verify the engine runs:
+Verify the engine runs (no install — `uvx` builds and runs it on the fly):
 ```bash
-python3 .claude/skills/asvs-verify/scripts/asvs.py stats --level L2
+uvx --from .claude/skills/asvs-verify asvs stats --level L2
 ```
 
-### Option B — make the skill available in *all* your repos
-Copy (or symlink) the skill into your personal skills directory:
+### Option B — put `asvs` on your PATH, and the skill in *all* your repos
+Install the command once, then call it bare from any directory:
+```bash
+uv tool install --from .claude/skills/asvs-verify asvs-verify
+asvs stats --level L2          # now works anywhere
+```
+To make the *skill* activate in every project, copy or symlink it into your personal
+skills directory:
 ```bash
 # copy:
 cp -r .claude/skills/asvs-verify ~/.claude/skills/asvs-verify
-
 # …or symlink so it tracks this repo (updates when you pull):
 ln -s "$(pwd)/.claude/skills/asvs-verify" ~/.claude/skills/asvs-verify
 ```
@@ -76,8 +83,9 @@ Restart Claude Code. The skill now activates in any project when you ask to
 assess/verify/attest an app against ASVS. It always runs against the **target repo
 you name**, never this one.
 
-> The engine finds its data via paths relative to `asvs.py`, so copying/symlinking
-> the whole `asvs-verify/` folder keeps it self-contained.
+> The ASVS dataset is bundled *inside* the `asvs_verify` package and resolved via
+> `importlib.resources`, so `asvs` works from any working directory — including
+> inside the target repo you're attesting — no matter where it's installed.
 
 ---
 
@@ -86,19 +94,20 @@ you name**, never this one.
 The flow is **scope → scaffold → verify → report**.
 
 ```bash
-S=.claude/skills/asvs-verify/scripts/asvs.py
+# Point `asvs` at the skill dir once (or `uv tool install` it — see Option B):
+alias asvs='uvx --from .claude/skills/asvs-verify asvs'
 
 # 1. SCOPE — see what an L2 assessment covers (253 requirements)
-python3 $S stats --level L2
+asvs stats --level L2
 
 # 2. SCAFFOLD — generate a checklist for one area, e.g. authentication
-python3 $S scaffold --level L2 --chapter V6,V7,V8 --target "my-api" --out asvs.json
+asvs scaffold --level L2 --chapter V6,V7,V8 --target "my-api" --out asvs.json
 
 # 3. VERIFY — open asvs.json; for each requirement set a verdict + evidence.
 #    (Do this yourself, or let the Claude skill do it — see next section.)
 
 # 4. REPORT — roll up + integrity-check (refuses evidence-free passes)
-python3 $S report --checklist asvs.json
+asvs report --checklist asvs.json
 ```
 
 You'll get a summary like:
@@ -125,13 +134,13 @@ just ask in natural language. Examples:
 What the skill does, step by step:
 1. **Scope** — confirms the target, picks a level (defaults to **L2**), optionally
    narrows to chapters.
-2. **Scaffold** — runs `asvs.py scaffold` to get the exact applicable requirements.
+2. **Scaffold** — runs `asvs scaffold` to get the exact applicable requirements.
 3. **Verify each requirement** — for chapters mapped to a **tool**, it tells you the
    command to run (or runs it if you ask) and captures the output as evidence; for
    **inspection** chapters (auth logic, authz, OAuth), it reads the code and cites
    `file:line`. When something needs a runtime test that wasn't done, it marks
    **NEEDS-EVIDENCE** rather than guessing.
-4. **Report** — runs `asvs.py report` (integrity-checked) and renders the
+4. **Report** — runs `asvs report` (integrity-checked) and renders the
    human-readable attestation from the template.
 5. **Remediate** — for every FAIL, a concrete fix and the ASVS ID it closes.
 
@@ -140,17 +149,18 @@ What the skill does, step by step:
 
 ---
 
-## The `asvs.py` engine (CLI reference)
+## The `asvs` command (CLI reference)
 
-Deterministic, standalone, no LLM required. `python3 asvs.py <command>`.
+Deterministic, standalone, no LLM required. Run as `asvs <command>` (installed) or
+`uvx --from .claude/skills/asvs-verify asvs <command>` (zero-install).
 
 | Command | Purpose | Example |
 |---------|---------|---------|
-| `chapters` | List the 17 ASVS chapters. | `asvs.py chapters` |
-| `stats` | Requirement counts per chapter for a level. | `asvs.py stats --level L2` |
-| `list` | Print the applicable requirement text. | `asvs.py list --level L1 --chapter V6` |
-| `scaffold` | Emit a fill-in attestation checklist (JSON). | `asvs.py scaffold --level L2 --target "api" --out c.json` |
-| `report` | Roll a filled checklist into a summary + integrity check. | `asvs.py report --checklist c.json` |
+| `chapters` | List the 17 ASVS chapters. | `asvs chapters` |
+| `stats` | Requirement counts per chapter for a level. | `asvs stats --level L2` |
+| `list` | Print the applicable requirement text. | `asvs list --level L1 --chapter V6` |
+| `scaffold` | Emit a fill-in attestation checklist (JSON). | `asvs scaffold --level L2 --target "api" --out c.json` |
+| `report` | Roll a filled checklist into a summary + integrity check. | `asvs report --checklist c.json` |
 
 Common flags: `--level {L1,L2,L3}` (default L2), `--chapter V6,V7` (comma-separated,
 optional), `--target "name"`, `--out file.json`.
@@ -170,7 +180,7 @@ Every requirement gets one of four verdicts. This is the heart of "provable, not
 | **N/A** | Doesn't apply (feature absent). | **Yes** — why it can't apply. |
 | **NEEDS-EVIDENCE** | Not yet verified by what was performed. | The honest default — never guess a PASS. |
 
-`asvs.py report` **enforces** this: it flags any PASS/FAIL missing evidence and any
+`asvs report` **enforces** this: it flags any PASS/FAIL missing evidence and any
 FAIL missing a remediation, and treats any remaining NEEDS-EVIDENCE as **INCOMPLETE**.
 An attestation is only **CONFORMANT** when every in-scope requirement is verified with
 zero FAILs.
@@ -179,7 +189,7 @@ zero FAILs.
 
 ## Evidence tools per chapter
 
-Each chapter has a verification **mechanism** (`references/tool-map.json`):
+Each chapter has a verification **mechanism** (`asvs_verify/data/tool-map.json`):
 
 - **`tool`** — a scanner's output *is* the proof. Run it, paste the output.
   - V3 Web Frontend → HTTP header scan · V12 Secure Communication → `testssl.sh` /
@@ -231,8 +241,9 @@ update when OWASP publishes a new version, see the "Updating the dataset" sectio
 **Do I need all those scanners installed?** No. Install a tool only when you want to
 prove the requirement it covers. Many inspection-based chapters need no tools at all.
 
-**Can I use the engine without Claude?** Yes — `asvs.py` is standalone Python. The
-skill adds the reasoning (verifying requirements, writing remediations); the engine
+**Can I use the engine without Claude?** Yes — `asvs` is a standalone command (run it
+with `uvx --from .claude/skills/asvs-verify asvs …`, or `uv tool install` it). The
+skill adds the reasoning (verifying requirements, writing remediations); the command
 handles scoping, scaffolding, and integrity-checking on its own.
 
 **What's next?** See [`GOALS.md`](GOALS.md) — opt-in ready-to-run check commands,
