@@ -1,0 +1,6 @@
+# Python build/run artifacts from the `asvs` command (asvs_verify package)
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/

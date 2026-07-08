@@ -68,8 +68,11 @@ data model allows.
 - [ ] Evaluate an **MCP server** as the serving surface once ≥3 scanners and ≥2
       standards exist and multiple projects want to query attestations/controls
       live — the point at which MCP beats per-repo skills.
-- [ ] Install/distribution: make skills available beyond this repo (global
-      `~/.claude/skills` install or a small `install.sh`).
+- [x] Distribution (engine): the ASVS engine ships as a `uv`-packaged named command
+      (`asvs`) — `uvx --from <skill> asvs …` for zero-install, `uv tool install` to
+      put it on PATH. No more raw `python3 scripts/asvs.py`. (spec-kit-style UX.)
+- [ ] Install/distribution (skill): make the *skill* available beyond this repo
+      (global `~/.claude/skills` install or a small `install.sh`).
 
 ## Guardrails (apply to everything above)
 

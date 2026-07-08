@@ -38,7 +38,7 @@ But pick the mechanism that makes the result *most provable*:
 | Mechanism | Use when | Example |
 |-----------|----------|---------|
 | **Claude skill** (default) | Reasoning, evidence-gathering, remediation, orchestrating other tools, honest "can't verify" judgment. | `asvs-verify` |
-| **Deterministic binary/CLI** | The check is mechanical and its output *is* the proof. Wrap or invoke it; don't reimplement in prose. | `testssl.sh`, `checkov`, `trivy`, `gitleaks`, the bundled `asvs.py` engine |
+| **Deterministic binary/CLI** | The check is mechanical and its output *is* the proof. Wrap or invoke it; don't reimplement in prose. | `testssl.sh`, `checkov`, `trivy`, `gitleaks`, the bundled `asvs` command |
 | **MCP server** | A stateful/queryable service many sessions reuse (a control database, a live scanner API). | (roadmap) |
 
 The strongest pattern is **hybrid**: a skill orchestrates deterministic tools where
@@ -62,17 +62,17 @@ built this way and is the template for future skills.
 
 Located at `.claude/skills/asvs-verify/`. It:
 - derives the applicable ASVS 5.0 requirement set for L1/L2/L3 **deterministically**
-  from the bundled authoritative dataset (`scripts/asvs.py`);
+  from the bundled authoritative dataset (the `asvs` command, `asvs_verify/`);
 - assigns each requirement a mechanism (tool / inspection / hybrid) via
-  `references/tool-map.json`, preferring scanner evidence where it exists;
+  `asvs_verify/data/tool-map.json`, preferring scanner evidence where it exists;
 - produces an attestation with a PASS / FAIL / N/A / **NEEDS-EVIDENCE** verdict and
   evidence per requirement, integrity-checked (no evidence-free PASS, no
   remediation-free FAIL);
 - generates concrete remediations for gaps.
 
-Quick check that it works:
+Quick check that it works (requires [`uv`](https://docs.astral.sh/uv/)):
 ```bash
-python3 .claude/skills/asvs-verify/scripts/asvs.py stats --level L2
+uvx --from .claude/skills/asvs-verify asvs stats --level L2
 ```
 
 It auto-activates when an engineer asks to assess/verify/attest/audit an app

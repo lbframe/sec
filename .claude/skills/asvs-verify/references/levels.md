@@ -13,7 +13,7 @@ applies**. Levels are **cumulative** — a higher level is a strict superset:
 
 > ⚠️ This is a **change from ASVS 4.0.3**, which used 14 chapters and separate
 > per-level boolean columns. Do not carry 4.0.3 numbering or leveling into 5.0
-> work. Always derive scope from `scripts/asvs.py`, never from memory.
+> work. Always derive scope from the `asvs` command, never from memory.
 
 ## Chapters
 
