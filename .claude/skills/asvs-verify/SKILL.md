@@ -1,5 +1,5 @@
 ---
-name: "ASVS Verify & Attest"
+name: asvs-verify
 description: "Evaluate an application against the OWASP ASVS 5.0 at a chosen level (L1/L2/L3), producing an evidence-backed attestation with a PASS/FAIL/N-A/NEEDS-EVIDENCE verdict per requirement, and generate concrete remediations for gaps. Use when an engineer asks to assess, verify, attest, audit, or measure a codebase/app against OWASP ASVS or application security requirements, achieve provable AppSec, or find out what to fix to reach an ASVS level."
 ---
 

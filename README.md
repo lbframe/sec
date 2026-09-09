@@ -19,6 +19,7 @@ it falls short — get told exactly what to fix.
 
 - [What you get](#what-you-get)
 - [Install](#install)
+- [Using with Codex](#using-with-codex)
 - [Quick start (5 minutes)](#quick-start-5-minutes)
 - [Using the ASVS skill](#using-the-asvs-skill)
 - [The `asvs` command (CLI reference)](#the-asvs-command-cli-reference)
@@ -86,6 +87,43 @@ you name**, never this one.
 > The ASVS dataset is bundled *inside* the `asvs_verify` package and resolved via
 > `importlib.resources`, so `asvs` works from any working directory — including
 > inside the target repo you're attesting — no matter where it's installed.
+
+---
+
+## Using with Codex
+
+Prerequisites: a Codex client with local Agent Skills support, `uv`, and a checkout
+of this repository that preserves symbolic links. The engine requires Python 3.9+
+(which `uv` can provision). Claude Code is not required for this option.
+
+Start a fresh Codex session **in `sec`**:
+
+```bash
+cd /absolute/path/to/sec
+codex
+```
+
+Codex discovers `.agents/skills/asvs-verify`, a relative symlink to the existing
+`.claude/skills/asvs-verify/` directory. Both clients use the same **ASVS Verify &
+Attest** instructions, with the technical name `asvs-verify`.
+
+In Codex CLI, use `/skills` to select `asvs-verify`, or type `$asvs-verify` in a
+client that supports skill mentions. Name the external application with an
+explicit path, for example:
+
+```text
+$asvs-verify Assess /absolute/path/to/my-api against OWASP ASVS L2.
+```
+
+The named application is the assessment target. `$SKILL` in the skill's commands
+is the absolute path to the skill directory in `sec`, not the application path.
+The workflow remains scope → scaffold → verify → report → remediation, with L2
+as the default; the session's instructions and permissions still apply.
+
+This is local discovery in `sec`: it does **not** install the skill for sessions
+opened in other repositories. Keep the repository intact; copying only the skill
+folder loses its relative references to root-level `types.md` and `standards.md`.
+See [Codex's local skill discovery documentation](https://learn.chatgpt.com/docs/build-skills).
 
 ---
 
