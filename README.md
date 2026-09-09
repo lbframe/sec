@@ -205,6 +205,50 @@ optional), `--target "name"`, `--out file.json`.
 
 **Levels are cumulative** (verified from the data): L1 = 70 reqs · L2 = 253 · L3 = 345.
 
+### Report exit codes
+
+For a readable checklist JSON with the expected structure, `asvs report` separates
+document integrity from the application's security result:
+
+| Condition | Result | Exit code |
+|-----------|--------|-----------|
+| All requirements PASS or justified N/A, no integrity problems | CONFORMANT | `0` |
+| At least one documented FAIL, no unverified requirements or integrity problems | NON-CONFORMANT | `0` |
+| At least one NEEDS-EVIDENCE, no integrity problems | INCOMPLETE | `0` |
+| Any integrity problem, regardless of other verdicts | INCOMPLETE | `1` |
+| Invalid command-line arguments | Existing argparse error | `2` |
+
+Integrity problems include PASS/FAIL without evidence, FAIL without remediation,
+invalid verdicts, and N/A without justification in `evidence`. A FAIL or
+NEEDS-EVIDENCE alone does not cause a process failure. File-reading, malformed-JSON
+and unexpected-structure errors retain their existing failure behavior; this is
+not general schema validation.
+
+**Compatibility change:** integrity problems previously printed warnings while
+returning `0`; shell consumers now receive `1`. Older N/A entries without
+justification could contribute to CONFORMANT and now make the attestation
+INCOMPLETE with exit code `1`. Complete their `evidence` with an actual scope
+justification before using them again. There is no automatic migration or invented
+justification, and `report` never rewrites the input checklist.
+
+### Reproduce the CLI tests
+
+From the repository root, use a temporary uv environment (leaves any user tool
+installation intact):
+
+```bash
+ASVS_TEST_DIR=$(mktemp -d)
+uv venv "$ASVS_TEST_DIR/venv"
+uv pip install --python "$ASVS_TEST_DIR/venv/bin/python" .claude/skills/asvs-verify
+"$ASVS_TEST_DIR/venv/bin/python" -B -m unittest discover -s tests -v
+```
+
+The stdlib `unittest` suite runs synthetic checklists through both the installed
+`asvs` console command and `python -m asvs_verify` in subprocesses, from temporary
+directories outside the repository. It checks results, exit codes, diagnostics,
+and preservation of input bytes. It does not assess the quality of evidence or run
+scanners.
+
 ---
 
 ## Verdicts & what "provable" means
@@ -215,13 +259,20 @@ Every requirement gets one of four verdicts. This is the heart of "provable, not
 |---------|---------|--------------------|
 | **PASS** | Met, demonstrated by concrete evidence. | **Yes** — `file:line`, config, scan output, or test result. |
 | **FAIL** | Not met. | **Yes** — evidence of the gap **and** a remediation. |
-| **N/A** | Doesn't apply (feature absent). | **Yes** — why it can't apply. |
+| **N/A** | Doesn't apply (feature absent). | **Yes** — why it can't apply, in `evidence`. |
 | **NEEDS-EVIDENCE** | Not yet verified by what was performed. | The honest default — never guess a PASS. |
 
-`asvs report` **enforces** this: it flags any PASS/FAIL missing evidence and any
-FAIL missing a remediation, and treats any remaining NEEDS-EVIDENCE as **INCOMPLETE**.
+For N/A, `evidence` must be a nonempty string after trimming leading/trailing
+whitespace for the check. Missing, empty, whitespace-only, `null`, and non-text
+values are invalid; text only in `notes` or `remediation` does not suffice. A
+justified N/A needs no remediation. The check only verifies the presence of text;
+the assessor remains responsible for whether the justification is relevant.
+
+`asvs report` **enforces** this: it flags any PASS/FAIL missing evidence, any
+FAIL missing a remediation, any invalid verdict, and any unjustified N/A as
+integrity problems. These and any remaining NEEDS-EVIDENCE make the result **INCOMPLETE**.
 An attestation is only **CONFORMANT** when every in-scope requirement is verified with
-zero FAILs.
+zero FAILs and no integrity problems.
 
 ---
 
