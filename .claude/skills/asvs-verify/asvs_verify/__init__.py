@@ -170,12 +170,16 @@ def cmd_report(args):
     reqs = cl["requirements"]
     counts = Counter(r.get("verdict", "NEEDS-EVIDENCE") for r in reqs)
     total = len(reqs)
-    # Integrity checks: PASS/FAIL must carry evidence; FAIL must carry remediation.
+    # PASS/FAIL need evidence; N/A needs justification; FAIL needs remediation.
     problems = []
     for r in reqs:
         v = r.get("verdict")
         if v in ("PASS", "FAIL") and not str(r.get("evidence", "")).strip():
             problems.append(f"{r['id']}: verdict {v} with no evidence")
+        if v == "N/A":
+            evidence = r.get("evidence")
+            if not isinstance(evidence, str) or not evidence.strip():
+                problems.append(f"{r['id']}: N/A with no justification in evidence")
         if v == "FAIL" and not str(r.get("remediation", "")).strip():
             problems.append(f"{r['id']}: FAIL with no remediation")
         if v not in VERDICTS:
@@ -205,6 +209,7 @@ def cmd_report(args):
     verdict = "INCOMPLETE" if (counts["NEEDS-EVIDENCE"] or problems) else (
         "CONFORMANT" if counts["FAIL"] == 0 else "NON-CONFORMANT")
     print(f"\nRESULT: {verdict} @ {cl.get('target_level')}")
+    return 1 if problems else 0
 
 
 def main(argv=None):
@@ -238,8 +243,8 @@ def main(argv=None):
     sp.set_defaults(func=cmd_report)
 
     args = p.parse_args(argv)
-    args.func(args)
+    return args.func(args)
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

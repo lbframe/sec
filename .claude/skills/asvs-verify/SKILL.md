@@ -91,6 +91,8 @@ Work chapter by chapter. For each requirement:
 - If `inspection`: locate the relevant code/config, decide, and cite `file:line`.
 - Set `verdict` to PASS / FAIL / N/A / NEEDS-EVIDENCE. Fill `evidence`. For any
   FAIL, write a concrete `remediation` (generate it now — do not pre-load prose).
+- For N/A, put the scope justification in `evidence` as a nonblank string;
+  `notes` or `remediation` alone do not suffice. No remediation is required for N/A.
 - When unsure or a runtime test wasn't performed, leave NEEDS-EVIDENCE. Don't guess.
 
 ### 4. Roll up & attest
@@ -98,7 +100,11 @@ Work chapter by chapter. For each requirement:
 asvs report --checklist asvs.json
 ```
 This prints coverage/conformance, and **fails the integrity check** if any PASS/FAIL
-lacks evidence or any FAIL lacks a remediation. Fix those before publishing.
+lacks evidence, any FAIL lacks a remediation, a verdict is invalid, or an N/A
+lacks justification in `evidence`. Integrity problems produce INCOMPLETE and exit
+code `1`; fix those before publishing. With no integrity problems, exit code `0`
+is preserved even for NON-CONFORMANT (documented FAIL) or INCOMPLETE
+(NEEDS-EVIDENCE). The code reports document integrity, not security conformance.
 Then render the human report from `templates/attestation.md` (save to the target
 repo's `docs/security/asvs-attestation-<level>.md`, per that repo's conventions).
 
